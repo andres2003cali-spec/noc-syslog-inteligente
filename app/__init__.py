@@ -47,6 +47,10 @@ def create_app(overrides: dict | None = None) -> Flask:
     # ---- Registro de módulos (blueprints) ----
     from app.api.devices import bp as devices_bp          # Fase 2: inventario
     app.register_blueprint(devices_bp)
+    from app.api.events import bp as events_bp            # Fase 3: colector y eventos
+    app.register_blueprint(events_bp)
+    from app.api.incidents import bp as incidents_bp      # Fase 3: incidentes
+    app.register_blueprint(incidents_bp)
 
     @app.get("/api/health")
     def health():
