@@ -1,0 +1,31 @@
+# ---- Secretos: NUNCA se publican ----
+.env
+*.key
+*.pem
+*.p12
+secrets/
+
+# ---- Base de datos local y datos generados ----
+data/*.db
+data/*.db-journal
+data/exports/
+*.sqlite3
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- Bitácora de la propia aplicación ----
+logs/*.log
+
+# ---- Sistema operativo / editores ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

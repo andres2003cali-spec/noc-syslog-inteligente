@@ -1,0 +1,7 @@
+# Dependencias del proyecto NOC Syslog Inteligente v0.2.0
+# Flask: micro-framework web que expone la API REST y sirve el dashboard.
+Flask>=3.0,<4.0
+# python-dotenv: carga variables de entorno desde un archivo .env local (nunca se sube a GitHub).
+python-dotenv>=1.0
+# pytest: ejecuta las pruebas automatizadas de la carpeta tests/.
+pytest>=8.0
