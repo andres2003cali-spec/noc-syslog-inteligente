@@ -1,0 +1,58 @@
+# Plantilla generada por NOC Syslog Inteligente v0.2.0 - Fortinet FortiOS
+# Parámetros: colector 192.168.50.10 UDP/514, umbral 4 (Advertencia (Warning)), local7
+# ADVERTENCIA: Plantilla didáctica generada por NOC Syslog Inteligente v0.2.0. La sintaxis depende del modelo y la versión del sistema operativo: contrástela con la documentación oficial, haga backup y aplíquela solo en laboratorio autorizado con plan de reversa.
+# ADVERTENCIA: UDP/514 no confirma entrega ni protege el contenido (RFC 5426). Prefiera TCP/TLS cuando el equipo lo soporte.
+
+# ==== Fortinet FortiGate / FortiOS - Envío de Syslog al colector NOC ====
+# Verifique antes: get system status (versión de FortiOS).
+# Sincroniza la hora con NTP para correlacionar eventos
+config system ntp
+    set ntpsync enable
+    set type custom
+    config ntpserver
+        edit 1
+            set server "192.168.50.10"
+        next
+    end
+end
+# Define el servidor Syslog remoto
+config log syslogd setting
+    # Habilita el envío
+    set status enable
+    # IP del colector NOC
+    set server "192.168.50.10"
+    # Transporte: udp o reliable (TCP, RFC 6587)
+    set mode udp
+    # Puerto del colector
+    set port 514
+    # Facility local7
+    set facility local7
+    # Interfaz de origen (la sintaxis puede variar: source-ip o interface)
+    set interface-select-method specify
+    set interface "port1"
+end
+# Filtro: severidad mínima enviada al colector
+config log syslogd filter
+    # Envía desde warning hasta emergency (0..4)
+    set severity warning
+    # Incluye tráfico reenviado y local (accesos administrativos)
+    set forward-traffic enable
+    set local-traffic enable
+end
+# Registra eventos de sistema y de usuario (logins, cambios de configuración)
+config log eventfilter
+    set system enable
+    set user enable
+end
+
+# ---- Verificación ----
+show log syslogd setting
+show log syslogd filter
+diagnose log test   # genera mensajes de prueba
+execute ping 192.168.50.10
+
+# ---- Rollback ----
+config log syslogd setting
+    set status disable
+end
+# Restaure el backup: execute restore config ... (según versión)

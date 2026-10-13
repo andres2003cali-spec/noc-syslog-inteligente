@@ -1,0 +1,57 @@
+! Plantilla generada por NOC Syslog Inteligente v0.2.0 - Cisco IOS / IOS XE
+! Parámetros: colector 192.168.50.10 UDP/514, umbral 4 (Advertencia (Warning)), local7
+! ADVERTENCIA: Plantilla didáctica generada por NOC Syslog Inteligente v0.2.0. La sintaxis depende del modelo y la versión del sistema operativo: contrástela con la documentación oficial, haga backup y aplíquela solo en laboratorio autorizado con plan de reversa.
+! ADVERTENCIA: UDP/514 no confirma entrega ni protege el contenido (RFC 5426). Prefiera TCP/TLS cuando el equipo lo soporte.
+
+! ==== Cisco IOS / IOS XE - Envío de Syslog al colector NOC ====
+! Verifique antes: show version (familia/versión) y conectividad al colector (ping).
+configure terminal
+! Sincroniza el reloj con NTP: sin hora coherente no hay correlación de eventos
+ntp server 192.168.50.10
+! Marca de tiempo con fecha, milisegundos y zona horaria en cada mensaje
+service timestamps log datetime msec localtime show-timezone
+! Número de secuencia: permite detectar mensajes perdidos (UDP no confirma entrega)
+service sequence-numbers
+! Incluye el hostname como identificador de origen dentro del mensaje
+logging origin-id hostname
+! IP de origen fija: el colector valida la fuente contra el inventario (allowlist)
+logging source-interface Loopback0
+! Facility local7: separa los eventos de red en el colector
+logging facility local7
+! Destino: colector NOC por UDP/514
+logging host 192.168.50.10 transport udp port 514
+! Umbral: envía severidades 0..4 (warnings)
+logging trap warnings
+! Buffer local de respaldo por si el colector no está disponible
+logging buffered 16384 informational
+! Registra cada comando de configuración (detecta cambios de agentes o cuentas no autorizadas)
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+  ! Oculta contraseñas en los registros de cambios
+  hidekeys
+ exit
+exit
+! Registra intentos de acceso fallidos y exitosos (algunas versiones exigen 'login block-for')
+login on-failure log
+login on-success log
+! Activa el logging global
+logging on
+end
+! Guarda la configuración SOLO después de verificar
+write memory
+
+! ---- Verificación ----
+show logging
+show running-config | section logging
+show ntp status
+ping 192.168.50.10
+send log 4 "Prueba NOC Syslog Inteligente"  ! mensaje de prueba
+
+! ---- Rollback ----
+configure terminal
+no logging host 192.168.50.10
+logging trap informational
+end
+! Restaure el backup previo si cambió otras líneas: copy flash:backup.cfg running-config

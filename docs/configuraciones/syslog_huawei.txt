@@ -1,0 +1,35 @@
+# Plantilla generada por NOC Syslog Inteligente v0.2.0 - Huawei VRP
+# Parámetros: colector 192.168.50.10 UDP/514, umbral 4 (Advertencia (Warning)), local7
+# ADVERTENCIA: Plantilla didáctica generada por NOC Syslog Inteligente v0.2.0. La sintaxis depende del modelo y la versión del sistema operativo: contrástela con la documentación oficial, haga backup y aplíquela solo en laboratorio autorizado con plan de reversa.
+# ADVERTENCIA: UDP/514 no confirma entrega ni protege el contenido (RFC 5426). Prefiera TCP/TLS cuando el equipo lo soporte.
+
+# ==== Huawei VRP - Envío de Syslog al colector NOC ====
+# Verifique antes: display version (algunas plataformas requieren 'commit').
+system-view
+# Habilita el centro de información (info-center)
+info-center enable
+# Marca de tiempo con fecha y milisegundos
+info-center timestamp log date precision-time millisecond
+# Sincroniza la hora con NTP
+ntp-service unicast-server 192.168.50.10
+# Filtro del canal loghost: envía severidades 0..4 (warning)
+info-center source default channel loghost log level warning
+# Destino: colector NOC con facility local7
+info-center loghost 192.168.50.10 facility local7
+# Interfaz de origen fija para que el colector valide la fuente
+info-center loghost source LoopBack0
+quit
+# Guarda según la política del laboratorio
+save
+
+# ---- Verificación ----
+display info-center
+display logbuffer
+display ntp-service status
+ping 192.168.50.10
+
+# ---- Rollback ----
+system-view
+undo info-center loghost 192.168.50.10
+quit
+save
