@@ -57,6 +57,8 @@ def create_app(overrides: dict | None = None) -> Flask:
     app.register_blueprint(tools_bp)
     from app.api.security import bp as security_bp        # Fase 4: auditoría y política IA
     app.register_blueprint(security_bp)
+    from app.api.web import bp as web_bp                  # Fase 5: dashboard web
+    app.register_blueprint(web_bp)
 
     @app.get("/api/health")
     def health():

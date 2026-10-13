@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NOC Syslog Inteligente v{{ version }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<!--
+  Interfaz de una sola página. Todo el contenido dinámico se inserta escapado
+  (función esc() en app.js) porque los logs son datos NO confiables (anti-XSS).
+-->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>NOC Syslog Inteligente</h1>
+      <p class="brand-sub">v{{ version }} · MVP Corte 2 · <strong class="lab">Laboratorio con datos simulados</strong></p>
+    </div>
+  </div>
+  <div class="spectrum" id="spectrum" title="Distribución de eventos por severidad (0 a 7)"></div>
+  <div class="identity">
+    <label for="userSel">Operando como</label>
+    <select id="userSel">
+      <option value="operador.demo">operador.demo</option>
+      <option value="operador2.demo">operador2.demo</option>
+      <option value="admin.demo">admin.demo</option>
+      <option value="lector.demo">lector.demo</option>
+      <option value="agente-ia-simulado">agente-ia-simulado</option>
+    </select>
+    <span class="role" id="roleBadge">operador</span>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs" aria-label="Secciones">
+  <button data-tab="dashboard" class="active">Tablero</button>
+  <button data-tab="inventory">Inventario</button>
+  <button data-tab="events">Eventos</button>
+  <button data-tab="incidents">Incidentes</button>
+  <button data-tab="approvals">Aprobaciones <span class="count" id="pendingCount"></span></button>
+  <button data-tab="config">Configuraciones</button>
+  <button data-tab="console">Consola</button>
+  <button data-tab="security">Defensa IA</button>
+  <button data-tab="audit">Auditoría</button>
+</nav>
+
+<main>
+<!-- ===================== TABLERO ===================== -->
+<section id="tab-dashboard" class="tab active">
+  <div class="kpis" id="kpis"></div>
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Estado de los equipos</h2>
+      <div id="deviceStatus" class="device-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>Eventos por severidad</h2>
+      <div id="sevBars" class="sev-bars"></div>
+      <p class="hint">0 es lo más urgente y 7 es depuración (RFC 5424). La política abre incidentes para 0–3.</p>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Críticos recientes (0–2)</h2>
+      <div id="recentCritical"></div>
+    </div>
+    <div class="panel">
+      <h2>Incidentes abiertos</h2>
+      <div id="openIncidents"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Generar eventos de prueba</h2>
+    <p class="hint">Cada botón envía mensajes <strong>simulados</strong> por la misma tubería que un equipo real: validación, política, incidentes y auditoría.</p>
+    <div class="scenario-row" id="scenarioRow"></div>
+    <pre class="result" id="scenarioResult" hidden></pre>
+  </div>
+</section>
+
+<!-- ===================== INVENTARIO ===================== -->
+<section id="tab-inventory" class="tab">
+  <div class="grid-side">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Inventario de equipos</h2>
+        <span class="hint" id="invCount"></span>
+      </div>
+      <div class="table-wrap"><table id="invTable"></table></div>
+      <p class="hint">"Sin comunicación": equipo activo sin eventos durante el umbral configurado. El inventario es también la lista de fuentes autorizadas para Syslog.</p>
+    </div>
+    <form class="panel form" id="devForm" autocomplete="off">
+      <h2 id="devFormTitle">Registrar equipo</h2>
+      <input type="hidden" name="id">
+      <label>Nombre<input name="name" required placeholder="R2-LAB" maxlength="40"></label>
+      <label>IP de gestión<input name="ip" required placeholder="192.168.50.20"></label>
+      <label>Marca<select name="vendor"><option>Cisco</option><option>Fortinet</option><option>Huawei</option><option>Otro</option></select></label>
+      <label>Modelo<input name="model" placeholder="ISR 4331" maxlength="60"></label>
+      <label>SO / versión<input name="os_version" placeholder="IOS XE 17.9" maxlength="60"></label>
+      <label>Ubicación<input name="location" placeholder="Sala NOC" maxlength="80"></label>
+      <label>Estado<select name="status"><option value="activo">activo</option><option value="mantenimiento">mantenimiento</option><option value="inactivo">inactivo</option></select></label>
+      <label>Calidad del dato<select name="data_quality"><option value="confirmado">confirmado</option><option value="por_verificar">por verificar</option></select></label>
+      <label class="check"><input type="checkbox" name="is_simulated" checked> Equipo simulado (laboratorio)</label>
+      <div class="actions">
+        <button type="submit" class="primary">Guardar equipo</button>
+        <button type="button" id="devCancel">Limpiar</button>
+      </div>
+      <p class="msg" id="devMsg"></p>
+    </form>
+  </div>
+</section>
+
+<!-- ===================== EVENTOS ===================== -->
+<section id="tab-events" class="tab">
+  <form class="panel filters" id="evFilters">
+    <label>Desde<input type="date" name="date_from"></label>
+    <label>Hasta<input type="date" name="date_to"></label>
+    <label>Marca<select name="vendor"><option value="">Todas</option><option>Cisco</option><option>Fortinet</option><option>Huawei</option><option>Desconocido</option></select></label>
+    <label>Equipo<select name="device_id" id="evDevice"><option value="">Todos</option></select></label>
+    <label>Severidad<select name="severity" id="evSeverity"><option value="">Todas</option></select></label>
+    <label>Hasta severidad<select name="sev_max" id="evSevMax"><option value="">—</option></select></label>
+    <label>Bandera<select name="flag"><option value="">Todas</option><option value="posible_inyeccion_prompt">Inyección de prompt</option><option value="fuente_no_autorizada">Fuente no autorizada</option><option value="secreto_enmascarado">Secreto enmascarado</option><option value="cambio_configuracion">Cambio de configuración</option><option value="fuera_de_horario">Fuera de horario</option><option value="fallo_autenticacion">Fallo de autenticación</option><option value="cuenta_servicio_o_agente">Cuenta de servicio/agente</option></select></label>
+    <label>Texto<input name="q" placeholder="buscar en el mensaje" maxlength="100"></label>
+    <div class="actions">
+      <button type="submit" class="primary">Filtrar</button>
+      <button type="reset" id="evReset">Quitar filtros</button>
+      <a class="btn" id="evExport" href="/api/events/export.csv">Exportar CSV</a>
+    </div>
+  </form>
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Eventos Syslog normalizados</h2>
+      <strong class="total" id="evTotal"></strong>
+    </div>
+    <div class="table-wrap"><table id="evTable" class="dense"></table></div>
+  </div>
+  <form class="panel form-inline" id="importForm">
+    <h2>Importar archivo Syslog</h2>
+    <label>Archivo (.log, .txt, máx. 2 MB)<input type="file" name="file" accept=".log,.txt,.syslog" required></label>
+    <label>Origen de los datos<select name="origin_label"><option value="simulado">simulado</option><option value="real">real (laboratorio autorizado)</option></select></label>
+    <button type="submit" class="primary">Importar</button>
+    <pre class="result" id="importResult" hidden></pre>
+  </form>
+</section>
+
+<!-- ===================== INCIDENTES ===================== -->
+<section id="tab-incidents" class="tab">
+  <div class="grid-side wide-side">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Incidentes</h2>
+        <select id="incStatusFilter">
+          <option value="">Todos</option><option value="abierto">abierto</option><option value="asignado">asignado</option>
+          <option value="en_progreso">en progreso</option><option value="resuelto">resuelto</option><option value="cerrado">cerrado</option>
+        </select>
+      </div>
+      <div class="table-wrap"><table id="incTable" class="dense"></table></div>
+      <details class="panel-sub">
+        <summary>Crear incidente manual</summary>
+        <form class="form" id="incCreate">
+          <label>Título<input name="title" required minlength="5" maxlength="200"></label>
+          <label>Severidad<select name="severity" id="incSev"></select></label>
+          <label>Equipo<select name="device_id" id="incDevice"><option value="">(ninguno)</option></select></label>
+          <label>Responsable<input name="assignee" placeholder="operador.demo"></label>
+          <label>Descripción<textarea name="description" rows="2"></textarea></label>
+          <button type="submit" class="primary">Crear incidente</button>
+          <p class="msg" id="incCreateMsg"></p>
+        </form>
+      </details>
+    </div>
+    <div class="panel" id="incDetail">
+      <p class="empty">Seleccione un incidente para ver su seguimiento.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== APROBACIONES ===================== -->
+<section id="tab-approvals" class="tab">
+  <div class="panel">
+    <h2>Flujo obligatorio de acción</h2>
+    <ol class="flow" id="flowSteps"></ol>
+    <p class="hint">Ningún agente de IA puede aprobar ni ejecutar. Quien propone no puede aprobar. Lo que la política bloquea no se puede aprobar. La ejecución del MVP es simulada.</p>
+  </div>
+  <div class="grid-side">
+    <div class="panel">
+      <h2>Propuestas de acción</h2>
+      <div class="table-wrap"><table id="propTable" class="dense"></table></div>
+    </div>
+    <form class="panel form" id="propForm">
+      <h2>Proponer acción</h2>
+      <label>Equipo<select name="device_id" id="propDevice" required></select></label>
+      <label>Comando propuesto<input name="command" required maxlength="120" placeholder="show logging"></label>
+      <label>Incidente (opcional)<input name="incident_id" type="number" min="1" placeholder="ID"></label>
+      <label>Justificación<textarea name="rationale" rows="2" maxlength="500"></textarea></label>
+      <button type="submit" class="primary">Enviar a revisión</button>
+      <p class="msg" id="propMsg"></p>
+    </form>
+  </div>
+</section>
+
+<!-- ===================== CONFIGURACIONES ===================== -->
+<section id="tab-config" class="tab">
+  <form class="panel filters" id="cfgForm">
+    <label>Fabricante<select name="vendor"><option value="all">Las tres marcas</option><option value="cisco">Cisco IOS / IOS XE</option><option value="fortinet">Fortinet FortiOS</option><option value="huawei">Huawei VRP</option></select></label>
+    <label>IP del colector<input name="collector_ip" value="192.168.50.10" required></label>
+    <label>Puerto<input name="port" type="number" value="514" min="1" max="65535"></label>
+    <label>Transporte<select name="transport"><option value="udp">UDP</option><option value="tcp">TCP</option></select></label>
+    <label>Umbral de severidad<select name="severity" id="cfgSev"></select></label>
+    <label>Facility<select name="facility" id="cfgFac"></select></label>
+    <label>Interfaz de origen<input name="source_interface" placeholder="Loopback0"></label>
+    <label>Servidor NTP<input name="ntp_server" placeholder="192.168.50.10"></label>
+    <div class="actions"><button type="submit" class="primary">Generar configuración</button></div>
+  </form>
+  <p class="msg" id="cfgMsg"></p>
+  <div class="cfg-grid" id="cfgOut"></div>
+</section>
+
+<!-- ===================== CONSOLA ===================== -->
+<section id="tab-console" class="tab">
+  <div>
+    <div class="panel">
+      <div class="console-bar">
+        <label>Equipo<select id="conDevice"></select></label>
+        <label>Perfil<select id="conProfile"></select></label>
+        <span class="mode">Solo lectura · simulación</span>
+      </div>
+      <div class="terminal" id="terminal" role="log" aria-live="polite"></div>
+      <form class="term-input" id="termForm">
+        <span id="termPrompt">R1-NOC#</span>
+        <input id="termCmd" autocomplete="off" spellcheck="false" maxlength="140" aria-label="Comando">
+      </form>
+      <div class="chips" id="conAllowed"></div>
+    </div>
+    <div class="panel">
+      <h2>Auditoría de consola</h2>
+      <div class="table-wrap"><table id="cmdAudit" class="dense"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DEFENSA IA ===================== -->
+<section id="tab-security" class="tab">
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Política de defensa ante agentes de IA</h2>
+      <p class="principle" id="polPrinciple"></p>
+      <div id="polControls"></div>
+    </div>
+    <div class="panel">
+      <h2>Umbrales y roles vigentes</h2>
+      <div id="polThresholds"></div>
+      <div id="polRoles"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Eventos con banderas de seguridad</h2>
+      <strong class="total" id="secTotal"></strong>
+    </div>
+    <div class="table-wrap"><table id="secTable" class="dense"></table></div>
+  </div>
+</section>
+
+<!-- ===================== AUDITORÍA ===================== -->
+<section id="tab-audit" class="tab">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Bitácora de auditoría</h2>
+      <div><span id="chainState"></span> <a class="btn" href="/api/audit/export.json">Exportar evidencia JSON</a></div>
+    </div>
+    <p class="hint">Cada registro guarda el SHA-256 del anterior. Si alguien altera una fila, la verificación de la cadena falla.</p>
+    <div class="table-wrap"><table id="auditTable" class="dense"></table></div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">NOC Syslog Inteligente v{{ version }} · Andrés Felipe Silva Garzón · Administración y Gestión de Redes 2026-2 · Uso académico</footer>
+<div class="toast" id="toast" role="status"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
