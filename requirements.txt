@@ -2,25 +2,29 @@
 #  requirements.txt  ·  NOC Syslog Inteligente
 #  Lista de librerías de Python que necesita el proyecto.
 #  Se instalan todas con:  pip install -r requirements.txt
+#  Probado con Python 3.12 y compatible con Python 3.15
 # ============================================================
-
+ 
 # [WEB] Framework para construir la API y servir el dashboard.
 #       Incluye documentación automática en http://localhost:8000/docs
-fastapi==0.115.6
-
+fastapi==0.159.1
+ 
+# [VALIDACIÓN] Librerías internas de FastAPI. Se fijan versiones con
+#       soporte para Python 3.15 (pydantic-core trae instalador para 3.15).
+pydantic==2.14.1
+starlette==1.9.0
+ 
 # [SERVIDOR] Programa que "levanta" la aplicación FastAPI.
-uvicorn==0.34.0
-
+uvicorn==0.54.0
+ 
 # [CONFIG] Lee el archivo .env (secretos y parámetros fuera del código).
-python-dotenv==1.0.1
-
+python-dotenv==1.2.4
+ 
 # [ARCHIVOS] Permite subir archivos .log/.txt para importar eventos.
-python-multipart==0.0.20
-
+python-multipart==0.0.32
+ 
 # [ALERTAS] Cliente HTTP para enviar mensajes a la API de Telegram.
-requests==2.32.3
-
+requests==2.34.2
+ 
 # [PRUEBAS] Ejecuta las pruebas automáticas de la carpeta tests/.
-pytest==8.3.4
-
-# Nota: SQLite NO se instala aparte; viene incluido con Python (módulo sqlite3).
+pytest==9.1.1
