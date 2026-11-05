@@ -1,70 +1,124 @@
 """
-config.py - Configuración central del NOC Syslog Inteligente.
-
-Todos los parámetros se leen de variables de entorno (archivo .env local).
-Así se cumple RNF-01: los secretos y valores sensibles NUNCA quedan en el código.
+==============================================================
+ ARCHIVO : app/config.py
+ PROYECTO: NOC Syslog Inteligente
+ PROPÓSITO:
+   Centralizar TODA la configuración de la aplicación.
+   Los valores se leen del archivo .env para que ningún
+   secreto (token, contraseña) quede escrito en el código.
+   -> Cumple RNF-01 (Seguridad: secretos fuera del código)
+==============================================================
 """
+
 import os
 from pathlib import Path
 
-try:  # python-dotenv es opcional: si no está, se usan solo variables del sistema
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:  # pragma: no cover
-    pass
+from dotenv import load_dotenv
 
-# Carpeta raíz del proyecto (dos niveles arriba de este archivo)
+# ------------------------------------------------------------
+# [BLOQUE 1] RUTAS BASE
+# BASE_DIR = carpeta raíz del proyecto (donde está el .env).
+# __file__ es este archivo; .parent sube un nivel (app/) y
+# otro .parent sube a la raíz (noc-syslog-inteligente/).
+# ------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-APP_VERSION = "0.2.0"
+# Carga las variables del archivo .env (si existe) al entorno.
+load_dotenv(BASE_DIR / ".env")
 
 
-def _int(name: str, default: int) -> int:
-    """Lee un entero del entorno; si el valor es inválido usa el valor por defecto."""
+# ------------------------------------------------------------
+# [BLOQUE 2] FUNCIONES AUXILIARES DE LECTURA
+# Convierten el texto del .env al tipo correcto (int / bool)
+# y usan un valor por defecto si la variable no existe.
+# ------------------------------------------------------------
+def _texto(nombre: str, defecto: str = "") -> str:
+    """Lee una variable de texto."""
+    return os.getenv(nombre, defecto).strip()
+
+
+def _entero(nombre: str, defecto: int) -> int:
+    """Lee una variable numérica; si está mal escrita usa el defecto."""
     try:
-        return int(os.getenv(name, default))
-    except (TypeError, ValueError):
-        return default
+        return int(os.getenv(nombre, defecto))
+    except ValueError:
+        return defecto
 
 
-def _bool(name: str, default: bool) -> bool:
-    """Lee un booleano del entorno ('true', '1', 'si' => True)."""
-    return str(os.getenv(name, default)).strip().lower() in ("1", "true", "si", "sí", "yes")
+def _booleano(nombre: str, defecto: bool = False) -> bool:
+    """Lee true/false, si/no, 1/0."""
+    valor = os.getenv(nombre, str(defecto)).strip().lower()
+    return valor in ("true", "1", "si", "sí", "yes")
 
 
-class Config:
-    """Parámetros de la aplicación. Los valores por defecto son seguros para laboratorio."""
+# ------------------------------------------------------------
+# [BLOQUE 3] BASE DE DATOS
+# ------------------------------------------------------------
+DB_PATH = BASE_DIR / _texto("DB_PATH", "data/noc.db")
 
-    # Clave de Flask: si no existe en el entorno se genera una aleatoria por ejecución
-    SECRET_KEY = os.getenv("NOC_SECRET_KEY") or os.urandom(32).hex()
+# ------------------------------------------------------------
+# [BLOQUE 4] COLECTOR SYSLOG (Parte 3)
+# ------------------------------------------------------------
+SYSLOG_HOST = _texto("SYSLOG_HOST", "0.0.0.0")
+SYSLOG_PORT = _entero("SYSLOG_PORT", 514)
+ALLOW_UNKNOWN_SOURCES = _booleano("ALLOW_UNKNOWN_SOURCES", False)
 
-    # Base de datos SQLite (archivo local, excluido de Git)
-    DB_PATH = os.getenv("NOC_DB_PATH", str(BASE_DIR / "data" / "noc.db"))
+# ------------------------------------------------------------
+# [BLOQUE 5] POLÍTICA DE EVENTOS (defensa y control de tormentas)
+# ------------------------------------------------------------
+INCIDENT_MIN_SEVERITY = _entero("INCIDENT_MIN_SEVERITY", 2)
+DEVICE_TIMEOUT_MINUTES = _entero("DEVICE_TIMEOUT_MINUTES", 10)
+DEDUP_WINDOW_SECONDS = _entero("DEDUP_WINDOW_SECONDS", 60)
+STORM_THRESHOLD_PER_MINUTE = _entero("STORM_THRESHOLD_PER_MINUTE", 120)
 
-    # Receptor Syslog UDP de laboratorio (desactivado por defecto)
-    SYSLOG_HOST = os.getenv("NOC_SYSLOG_HOST", "127.0.0.1")
-    SYSLOG_PORT = _int("NOC_SYSLOG_PORT", 5514)
-    SYSLOG_ENABLED = _bool("NOC_SYSLOG_ENABLED", False)
+# ------------------------------------------------------------
+# [BLOQUE 6] ALERTAS: TELEGRAM Y CORREO (Parte 7)
+# ------------------------------------------------------------
+ALERT_MIN_SEVERITY = _entero("ALERT_MIN_SEVERITY", 3)
+ALERT_RATE_LIMIT_PER_MINUTE = _entero("ALERT_RATE_LIMIT_PER_MINUTE", 5)
 
-    # Política: severidades 0..N abren incidente automáticamente (por defecto 0-3)
-    INCIDENT_MAX_SEVERITY = _int("NOC_INCIDENT_MAX_SEVERITY", 3)
+TELEGRAM_ENABLED = _booleano("TELEGRAM_ENABLED", False)
+TELEGRAM_BOT_TOKEN = _texto("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = _texto("TELEGRAM_CHAT_ID")
 
-    # Control de tormentas y deduplicación
-    RATE_LIMIT_PER_MINUTE = _int("NOC_RATE_LIMIT_PER_MINUTE", 60)
-    DEDUP_WINDOW_SECONDS = _int("NOC_DEDUP_WINDOW_SECONDS", 60)
+EMAIL_ENABLED = _booleano("EMAIL_ENABLED", False)
+SMTP_HOST = _texto("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = _entero("SMTP_PORT", 587)
+SMTP_USER = _texto("SMTP_USER")
+SMTP_PASSWORD = _texto("SMTP_PASSWORD")
+EMAIL_FROM = _texto("EMAIL_FROM")
+EMAIL_TO = _texto("EMAIL_TO")
 
-    # Estado de comunicación de los equipos (HU-01)
-    OFFLINE_THRESHOLD_MINUTES = _int("NOC_OFFLINE_THRESHOLD_MINUTES", 30)
+# ------------------------------------------------------------
+# [BLOQUE 7] OPERACIÓN
+# ------------------------------------------------------------
+OPERADOR_DEFAULT = _texto("OPERADOR_DEFAULT", "operador.noc")
 
-    # Horario laboral para la regla "cambio fuera de horario"
-    BUSINESS_HOURS_START = _int("NOC_BUSINESS_HOURS_START", 7)
-    BUSINESS_HOURS_END = _int("NOC_BUSINESS_HOURS_END", 19)
 
-    # Límites de entrada (validación, RNF-04)
-    MAX_UPLOAD_BYTES = 2 * 1024 * 1024      # 2 MB por archivo importado
-    MAX_LINE_LENGTH = 2048                  # bytes por mensaje Syslog
-    MAX_LINES_PER_IMPORT = 5000             # líneas por importación
+# ------------------------------------------------------------
+# [BLOQUE 8] ENMASCARAR SECRETOS
+# Nunca se imprime un secreto completo en pantalla ni en logs.
+# Ejemplo: "123456789:ABCdef..." -> "1234****cdef"
+# ------------------------------------------------------------
+def enmascarar(secreto: str) -> str:
+    if not secreto or secreto.startswith("REEMPLAZAR"):
+        return "(no configurado)"
+    if len(secreto) <= 8:
+        return "****"
+    return f"{secreto[:4]}****{secreto[-4:]}"
 
-    # Seguridad de Flask
-    MAX_CONTENT_LENGTH = MAX_UPLOAD_BYTES + 64 * 1024
-    TESTING = False
+
+# ------------------------------------------------------------
+# [BLOQUE 9] PRUEBA RÁPIDA
+# Ejecuta:  python -m app.config
+# Muestra la configuración cargada (con secretos enmascarados).
+# ------------------------------------------------------------
+if __name__ == "__main__":
+    print("=== Configuración cargada ===")
+    print(f"Base de datos ........: {DB_PATH}")
+    print(f"Colector Syslog ......: {SYSLOG_HOST}:{SYSLOG_PORT}/UDP")
+    print(f"Fuentes desconocidas .: {'aceptadas' if ALLOW_UNKNOWN_SOURCES else 'marcadas como NO autorizadas'}")
+    print(f"Incidente si sev <= ..: {INCIDENT_MIN_SEVERITY}")
+    print(f"Alerta si sev <= .....: {ALERT_MIN_SEVERITY}")
+    print(f"Telegram .............: {'ON' if TELEGRAM_ENABLED else 'OFF'} · token {enmascarar(TELEGRAM_BOT_TOKEN)}")
+    print(f"Correo ...............: {'ON' if EMAIL_ENABLED else 'OFF'} · clave {enmascarar(SMTP_PASSWORD)}")

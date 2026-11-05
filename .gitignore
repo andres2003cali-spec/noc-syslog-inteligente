@@ -1,31 +1,32 @@
-# ---- Secretos: NUNCA se publican ----
+# ============================================================
+#  .gitignore · Archivos que Git NUNCA debe subir a GitHub
+# ============================================================
+
+# [SECRETOS] Tokens, contraseñas y claves (RNF-01 Seguridad)
 .env
 *.key
 *.pem
-*.p12
-secrets/
+*.pfx
 
-# ---- Base de datos local y datos generados ----
-data/*.db
-data/*.db-journal
-data/exports/
-*.sqlite3
-
-# ---- Python ----
-__pycache__/
-*.py[cod]
+# [ENTORNO VIRTUAL] Librerías instaladas localmente (se recrean con pip)
 .venv/
 venv/
-env/
+
+# [PYTHON] Archivos compilados automáticamente
+__pycache__/
+*.pyc
 .pytest_cache/
-.coverage
-htmlcov/
 
-# ---- Bitácora de la propia aplicación ----
-logs/*.log
+# [BASE DE DATOS] La BD se genera en cada equipo; puede contener IPs reales
+data/*.db
+data/*.db-wal
+data/*.db-shm
 
-# ---- Sistema operativo / editores ----
-.DS_Store
+# [LOGS LOCALES] Bitácoras de ejecución
+*.log
+!data/muestras/*.log
+
+# [SISTEMA] Basura de Windows / macOS / editores
 Thumbs.db
-.vscode/
-.idea/
+.DS_Store
+.vscode/settings.json

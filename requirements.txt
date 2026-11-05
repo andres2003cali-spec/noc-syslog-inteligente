@@ -1,7 +1,26 @@
-# Dependencias del proyecto NOC Syslog Inteligente v0.2.0
-# Flask: micro-framework web que expone la API REST y sirve el dashboard.
-Flask>=3.0,<4.0
-# python-dotenv: carga variables de entorno desde un archivo .env local (nunca se sube a GitHub).
-python-dotenv>=1.0
-# pytest: ejecuta las pruebas automatizadas de la carpeta tests/.
-pytest>=8.0
+# ============================================================
+#  requirements.txt  ·  NOC Syslog Inteligente
+#  Lista de librerías de Python que necesita el proyecto.
+#  Se instalan todas con:  pip install -r requirements.txt
+# ============================================================
+
+# [WEB] Framework para construir la API y servir el dashboard.
+#       Incluye documentación automática en http://localhost:8000/docs
+fastapi==0.115.6
+
+# [SERVIDOR] Programa que "levanta" la aplicación FastAPI.
+uvicorn==0.34.0
+
+# [CONFIG] Lee el archivo .env (secretos y parámetros fuera del código).
+python-dotenv==1.0.1
+
+# [ARCHIVOS] Permite subir archivos .log/.txt para importar eventos.
+python-multipart==0.0.20
+
+# [ALERTAS] Cliente HTTP para enviar mensajes a la API de Telegram.
+requests==2.32.3
+
+# [PRUEBAS] Ejecuta las pruebas automáticas de la carpeta tests/.
+pytest==8.3.4
+
+# Nota: SQLite NO se instala aparte; viene incluido con Python (módulo sqlite3).
